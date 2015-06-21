@@ -1,0 +1,5 @@
+# This is a todo list of specific features from the game to properly implement
+- contacting roles
+- whispering 
+- roles that end meeting
+- roles that 'input'

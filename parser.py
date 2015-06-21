@@ -9,6 +9,7 @@ from urllib.error import URLError
 # ToDo: filter which messages to view
 # ToDo: allow command line arguments
 # ToDo: change "votes" to "chooses" for individual meetings (minor)
+# ToDo: write userID next to players
 # ToDo: reorganize code layout
 
 
@@ -20,6 +21,7 @@ gamedata = []
 try:
     with open(filename) as data_file:
         gamedata = json.load(data_file)
+        print("Success.")
 except IOError:
     yn = input("Failed. Attempt to view game online? [Y/N]: ")
     if yn[0] == 'y' or yn[0] == 'Y':
@@ -32,11 +34,13 @@ except IOError:
             request = urlopen(url)
             online_data = request.read().decode("utf-8")
             gamedata = json.loads(online_data)
+            print("Success.")
             try:
                 print("Attempting to save a copy...")
                 file1 = open(filename, "w")
                 file1.write(online_data)
                 file1.close()
+                print("Success.")
             except IOError:
                 print("Failed. IOError")
                 
@@ -167,6 +171,7 @@ def parse_disguise(data):
         disguisee = exchange[disguiser]
         game_print(disguiser + " was disguised as " + disguisee)
 
+ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet']
 
 for line in gamedata:
     action_type = line[0]
@@ -201,8 +206,7 @@ for line in gamedata:
         parse_kick(data)
     elif action_type == 'options':
         parse_options(data)
-    elif (action_type == 'meet' or action_type == 'kill' or 
-         action_type == 'left' or action_type == 'end_meet'):
+    elif action_type in ignore_actions:
         pass
     elif action_type == 'disguise':
         parse_disguise(data)
