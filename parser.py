@@ -17,7 +17,7 @@ from urllib.error import URLError
 
 def run_arg(settings):
     #todo soon
-    pass
+    return []
 
 
 
@@ -82,7 +82,7 @@ else:
 
 if settings['print_to_file']:
     try:
-        file2 = open(filename + ".txt", "w")
+        file2 = open(settings['filename'] + ".txt", "w")
     except IOError:
         print("Failed. IOError")
         print("Exiting")
