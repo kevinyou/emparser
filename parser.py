@@ -101,14 +101,21 @@ def parse_speech(data):
     seconds = str(time%60)
     if len(seconds) < 2:
         seconds = '0' + seconds
+    if len(minutes) < 2:
+        minutes = '0' + minutes
     speaker = data['user']
     msg = data['msg']
     is_quote = 'quote' in data
     is_dead = 'dead' in data
+    is_whisper = 'whisper' in data
     if is_quote and data['quote'] == True:
         msg = "\"" + data['target'] + " said | " + msg
     if is_dead and data['dead'] == True:
         game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
+    elif is_whisper:
+        target = data['whisper']
+        printing = "{0:s}:{1:s} \t ({2:s} whispers to {3:s}: {4:s})"
+        game_print(printing.format(minutes, seconds, speaker, target, msg))
     else:
         game_print("{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
     return
@@ -171,7 +178,23 @@ def parse_disguise(data):
         disguisee = exchange[disguiser]
         game_print(disguiser + " was disguised as " + disguisee)
 
-ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet']
+def parse_input(data):
+    player = data['user']
+    meeting = data['meet']
+    inputname = data['inputname']
+    if inputname == 'boolean':
+        inputname = 'bool'
+    if inputname == 'setitem':
+        inputname = 'item'
+    data_dict = data['data']
+    input_data = data_dict[inputname]
+    
+    printing = "{0:s} chooses {1:s} ({2:s})"
+    game_print(printing.format(player, input_data, meeting))
+    
+    
+
+ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event']
 
 for line in gamedata:
     action_type = line[0]
@@ -210,6 +233,8 @@ for line in gamedata:
         pass
     elif action_type == 'disguise':
         parse_disguise(data)
+    elif action_type == 'inputed':
+        parse_input(data)
     else: 
        # Debug game_print
        print(action_type, end=" ")
