@@ -1,6 +1,7 @@
 import json
 from pprint import pprint
 from urllib.request import urlopen
+from urllib.error import URLError
 
 # Ignore for now: meet, end_meet, kill, left
 
@@ -16,13 +17,10 @@ from urllib.request import urlopen
 # def get_data():
 
 
-
 filename = input("Game number?: ")
-
-#filename = '3314762'
-#filename = '4111588'
-#filename = '4156324'
 print("Attempting to see if cached...")
+
+gamedata = []
 
 try:
     with open(filename) as data_file:
@@ -30,13 +28,29 @@ try:
 except IOError:
     yn = input("Failed. Attempt to view game online? [Y/N]: ")
     if yn[0] == 'y' or yn[0] == 'Y':
-        archived = input("Is the game archived? [Y/N]: ")
-        if archived[0] == 'y' or yn[0] == 'Y':
-            url = "https://s3.amazonaws.com/em-gamerecords-forever/" + filename
-        else:
-            url = "https://s3.amazonaws.com/em-gamerecords/" + filename
-        request = urlopen(url)
-        gamedata = json.loads(request.read().decode("utf-8"))
+        try:
+            archived = input("Is the game archived? [Y/N]: ")
+            if archived[0] == 'y' or yn[0] == 'Y':
+                url = "https://s3.amazonaws.com/em-gamerecords-forever/" + filename
+            else:
+                url = "https://s3.amazonaws.com/em-gamerecords/" + filename
+            request = urlopen(url)
+            online_data = request.read().decode("utf-8")
+            gamedata = json.loads(online_data)
+            try:
+                print("Attempting to save a copy...")
+                file1 = open(filename, "w")
+                file1.write(online_data)
+                file1.close()
+            except IOError:
+                print("Failed. IOError")
+                
+        except URLError:
+            print("Failed. URLError")
+            exit()
+        except ValueError:
+            print("Failed. ValueError")
+            exit()
     else:
         exit()
 
