@@ -1,7 +1,9 @@
 import json
 from pprint import pprint
+from urllib.request import urlopen
 
-# Ignored: meet, end_meet, kill, left
+# Ignore for now: meet, end_meet, kill, left
+
 # ToDo: anonymous_plaeyrs, anonymous_reveal
 
 # ToDo: unarchived game url: https://s3.amazonaws.com/em-gamerecords/xxxx
@@ -11,13 +13,29 @@ from pprint import pprint
 
 # ToDo: print to file
 
-filename = input('File name?: ')
+filename = input("Game number?: ")
+
 #filename = '3314762'
 #filename = '4111588'
 #filename = '4156324'
+print("Attempting to see if cached...")
 
-with open(filename) as data_file:
-    gamedata = json.load(data_file)
+try:
+    with open(filename) as data_file:
+        gamedata = json.load(data_file)
+except IOError:
+    yn = input("Failed. Attempt to view game online? [Y/N]: ")
+    if yn[0] == 'y' or yn[0] == 'Y':
+        archived = input("Is the game archived? [Y/N]")
+        if archived[0] == 'y' or yn[0] == 'Y':
+            url = "https://s3.amazonaws.com/em-gamerecords-forever/" + filename
+        else:
+            url = "https://s3.amazonaws.com/em-gamerecords/" + filename
+        request = urlopen(url)
+        gamedata = json.loads(request.read().decode("utf-8"))
+    else:
+        exit()
+
 
 def parse_options(data):
     options_data = data['data']
@@ -127,10 +145,10 @@ for line in gamedata:
         parse_kick(data)
     elif action_type == 'options':
         parse_options(data)
-    else:
-        # Debug print
-        print(action_type, end=" ")
-        pprint(data)
+    else: 
+       # Debug print
+       print(action_type, end=" ")
+       pprint(data)
     
 else:
     print('-'*4 + " GAME END " + '-'*4)
