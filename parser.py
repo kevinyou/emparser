@@ -1,67 +1,86 @@
 import json
 import sys
+from sys import argv
+import argparse
 from pprint import pprint
 from urllib.request import urlopen
 from urllib.error import URLError
 
-# Ignore for now: meet, end_meet, kill, left
+# Ignore for now: meet, end_meet, kill, left, unmeet
 
 # ToDo: filter which messages to view
 # ToDo: allow command line arguments
 # ToDo: change "votes" to "chooses" for individual meetings (minor)
 # ToDo: write userID next to players
-# ToDo: reorganize code layout
+# ToDo: batch mode
+# ToDo: define yninput
+
+def run_arg(settings):
+    #todo soon
+    pass
 
 
-filename = input("Game number?: ")
-print("Attempting to see if cached...")
 
+def run_cli(settings):
+    settings['filename'] = input("Game number?: ")
+    print("Attempting to see if cached on disk...")
+    
+    try:
+        with open(settings['filename']) as data_file:
+            gamedata = json.load(data_file)
+            print("Success.")
+    except IOError:
+        yn = input("Failed. Attempt to view game online? [Y/N]: ")
+        if len(yn) > 0 and (yn[0] == 'y' or yn[0] == 'Y'):
+            try:
+                archived = input("Is the game archived? [Y/N]: ")
+                if archived[0] == 'y' or yn[0] == 'Y':
+                    settings['archived'] = True
+                    url = "https://s3.amazonaws.com/em-gamerecords-forever/" + settings['filename']
+                else:
+                    url = "https://s3.amazonaws.com/em-gamerecords/" + settings['filename']
+                request = urlopen(url)
+                online_data = request.read().decode("utf-8")
+                gamedata = json.loads(online_data)
+                print("Success.")
+                try:
+                    print("Attempting to save a copy...")
+                    file1 = open(filename, "w")
+                    file1.write(online_data)
+                    file1.close()
+                    print("Success.")
+                except IOError:
+                    print("Failed. IOError")
+                    
+            except URLError:
+                print("Failed. URLError")
+                print("Exiting")
+                sys.exit()
+            except ValueError:
+                print("Failed. ValueError")
+                print("Exiting")
+                sys.exit()
+        else:
+            print("Exiting")
+
+    query = input("Write output to console? [Y/N]: ")
+    settings['print_to_sys'] = True if (query[0] == 'y' or query[0] == 'Y') else False
+    query = input("Write output to file (" + settings['filename'] + ".txt)? [Y/N]: ")
+    settings['print_to_file'] = True if (query[0] == 'y' or query[0] == 'Y') else False
+    return gamedata
+
+    
+
+# Default settings
+settings = {'filename':"", 'archived':False, 'print_to_sys':True, 'print_to_file':False}
 gamedata = []
 
-try:
-    with open(filename) as data_file:
-        gamedata = json.load(data_file)
-        print("Success.")
-except IOError:
-    yn = input("Failed. Attempt to view game online? [Y/N]: ")
-    if yn[0] == 'y' or yn[0] == 'Y':
-        try:
-            archived = input("Is the game archived? [Y/N]: ")
-            if archived[0] == 'y' or yn[0] == 'Y':
-                url = "https://s3.amazonaws.com/em-gamerecords-forever/" + filename
-            else:
-                url = "https://s3.amazonaws.com/em-gamerecords/" + filename
-            request = urlopen(url)
-            online_data = request.read().decode("utf-8")
-            gamedata = json.loads(online_data)
-            print("Success.")
-            try:
-                print("Attempting to save a copy...")
-                file1 = open(filename, "w")
-                file1.write(online_data)
-                file1.close()
-                print("Success.")
-            except IOError:
-                print("Failed. IOError")
-                
-        except URLError:
-            print("Failed. URLError")
-            print("Exiting")
-            sys.exit()
-        except ValueError:
-            print("Failed. ValueError")
-            print("Exiting")
-            sys.exit()
-    else:
-        print("Exiting")
-        sys.exit()
+if (len(argv) > 1):
+    gamedata = run_arg(settings)
+else:
+    gamedata = run_cli(settings)
 
-query = input("Write output to console? [Y/N]: ")
-print_to_sys = True if (query[0] == 'y' or query[0] == 'Y') else False
-query = input("Write output to file (" + filename + ".txt)? [Y/N]: ")
-print_to_file = True if (query[0] == 'y' or query[0] == 'Y') else False
-
-if print_to_file:
+if settings['print_to_file']:
     try:
         file2 = open(filename + ".txt", "w")
     except IOError:
@@ -69,16 +88,11 @@ if print_to_file:
         print("Exiting")
         sys.exit()
 
-
-
 def game_print(string):
-    if print_to_sys:
+    if settings['print_to_sys']:
         print(string)
-    if print_to_file:
+    if settings['print_to_file']:
         file2.write(string + "\n")
-    
-    
-
 
 def parse_options(data):
     options_data = data['data']
@@ -195,7 +209,6 @@ def parse_input(data):
     
 
 ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event']
-
 for line in gamedata:
     action_type = line[0]
     data = line[1]
@@ -243,7 +256,7 @@ for line in gamedata:
 else:
     game_print('-'*8 + " GAME END " + '-'*8)
 
-if print_to_file:
+if settings['print_to_file']:
     file2.close()
 
 print("Success. Exiting")
