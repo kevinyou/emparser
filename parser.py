@@ -1,20 +1,15 @@
 import json
+import sys
 from pprint import pprint
 from urllib.request import urlopen
 from urllib.error import URLError
 
 # Ignore for now: meet, end_meet, kill, left
 
-# ToDo: anonymous_plaeyrs, anonymous_reveal
-
-# ToDo: unarchived game url: https://s3.amazonaws.com/em-gamerecords/xxxx
-# ToDo: archived game url: https://s3.amazonaws.com/em-gamerecords-forever/xxxx
-
 # ToDo: filter which messages to view
-
-# ToDo: print to file
-
-# def get_data():
+# ToDo: allow command line arguments
+# ToDo: change "votes" to "chooses" for individual meetings (minor)
+# ToDo: reorganize code layout
 
 
 filename = input("Game number?: ")
@@ -47,12 +42,39 @@ except IOError:
                 
         except URLError:
             print("Failed. URLError")
-            exit()
+            print("Exiting")
+            sys.exit()
         except ValueError:
             print("Failed. ValueError")
-            exit()
+            print("Exiting")
+            sys.exit()
     else:
-        exit()
+        print("Exiting")
+        sys.exit()
+
+query = input("Write output to console? [Y/N]: ")
+print_to_sys = True if (query[0] == 'y' or query[0] == 'Y') else False
+query = input("Write output to file (" + filename + ".txt)? [Y/N]: ")
+print_to_file = True if (query[0] == 'y' or query[0] == 'Y') else False
+
+if print_to_file:
+    try:
+        file2 = open(filename + ".txt", "w")
+    except IOError:
+        print("Failed. IOError")
+        print("Exiting")
+        sys.exit()
+
+
+
+def game_print(string):
+    if print_to_sys:
+        print(string)
+    if print_to_file:
+        file2.write(string + "\n")
+    
+    
+
 
 def parse_options(data):
     options_data = data['data']
@@ -67,7 +89,7 @@ def parse_options(data):
                 options.append("faster_game")
         elif options_data[option] == 1:
             options.append(option)
-    print("Options: " + str(options))
+    game_print("Options: " + str(options))
 
 def parse_speech(data):
     time = data['t']
@@ -82,9 +104,9 @@ def parse_speech(data):
     if is_quote and data['quote'] == True:
         msg = "\"" + data['target'] + " said | " + msg
     if is_dead and data['dead'] == True:
-        print("%s:%s \t (%s: %s)" % (minutes, seconds, speaker, msg))
+        game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
     else:
-        print("%s:%s \t %s: %s" % (minutes, seconds, speaker, msg))
+        game_print("{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
     return
 
 def parse_round(data):
@@ -93,9 +115,9 @@ def parse_round(data):
     message = " DAY " if (day % 2 == 0) else " NIGHT "
     message = message + " " + str(num)
     if day < 0:
-        print('-'*8 + " GAME OVER " + '-'*8)
+        game_print('-'*8 + " GAME OVER " + '-'*8)
     else:
-        print('-'*8 + message + '-'*8)
+        game_print('-'*8 + message + '-'*8)
     return
 
 def parse_sysmsg(data):
@@ -103,7 +125,7 @@ def parse_sysmsg(data):
     has_action_type = 'type' in data
     if has_action_type:
         action_type = data['type']
-    print(message)
+    game_print(message)
     return
 
 def parse_reveal(data):
@@ -111,15 +133,15 @@ def parse_reveal(data):
     role = data['data']
     death = 'red' in data
     if death == True and data['red'] == False:
-        print("DEATH: " + user + " as " + role)
+        game_print("DEATH: " + user + " as " + role)
     else:
-        print("REVEAL: " + user + " as " + role)
+        game_print("REVEAL: " + user + " as " + role)
     return
 
 def parse_anon(data):
     user = data['user']
     mask = data['mask']
-    print("MASK: " + mask + " is " + user)
+    game_print("MASK: " + mask + " is " + user)
 
 def parse_vote(data):
     user = data['user']
@@ -130,39 +152,39 @@ def parse_vote(data):
     verb = "unvotes" if unvote else "votes"
     target = "no one" if (target == "*") else target
     if meeting == 'village':
-        print(user + " " + verb + " " + target)
+        game_print(user + " " + verb + " " + target)
     else:
-        print(user + " " + verb + " " + target + " (" + meeting + ")")
+        game_print(user + " " + verb + " " + target + " (" + meeting + ")")
 
 def parse_kick(data):
     user = data['user']
-    print(user + " kicks")
+    game_print(user + " kicks")
 
 def parse_disguise(data):
     exchange = data['exchange']
     for key in exchange.keys():
         disguiser = key
         disguisee = exchange[disguiser]
-        print(disguiser + " was disguised as " + disguisee)
+        game_print(disguiser + " was disguised as " + disguisee)
 
 
 for line in gamedata:
     action_type = line[0]
     data = line[1]
     if action_type == 'auth':
-        print('-'*8 + " GAME START "+'-'*8)
+        game_print('-'*8 + " GAME START "+'-'*8)
     elif action_type == 'users':
-        print('-'*4 + " PLAYERS " + '-'*4)
+        game_print('-'*4 + " PLAYERS " + '-'*4)
         players = data['users']
         chatters = data["chatters"]
         for account in players:
-            print(account)
-        print('-'*4 + " CHATTERS " + '-'*4)
+            game_print(account)
+        game_print('-'*4 + " CHATTERS " + '-'*4)
         for account in chatters:
-            print(account)
-        print('-'*4 + " PREGAME " + '-'*4)
+            game_print(account)
+        game_print('-'*4 + " PREGAME " + '-'*4)
     elif action_type == "anonymous_players":
-        print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
+        game_print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
     elif action_type == '<':
         parse_speech(data)
     elif action_type == 'round':
@@ -185,10 +207,15 @@ for line in gamedata:
     elif action_type == 'disguise':
         parse_disguise(data)
     else: 
-       # Debug print
+       # Debug game_print
        print(action_type, end=" ")
        pprint(data)
     
 else:
-    print('-'*8 + " GAME END " + '-'*8)
-       
+    game_print('-'*8 + " GAME END " + '-'*8)
+
+if print_to_file:
+    file2.close()
+
+print("Success. Exiting")
+sys.exit()
