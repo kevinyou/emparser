@@ -13,6 +13,10 @@ from urllib.request import urlopen
 
 # ToDo: print to file
 
+# def get_data():
+
+
+
 filename = input("Game number?: ")
 
 #filename = '3314762'
@@ -26,7 +30,7 @@ try:
 except IOError:
     yn = input("Failed. Attempt to view game online? [Y/N]: ")
     if yn[0] == 'y' or yn[0] == 'Y':
-        archived = input("Is the game archived? [Y/N]")
+        archived = input("Is the game archived? [Y/N]: ")
         if archived[0] == 'y' or yn[0] == 'Y':
             url = "https://s3.amazonaws.com/em-gamerecords-forever/" + filename
         else:
@@ -35,7 +39,6 @@ except IOError:
         gamedata = json.loads(request.read().decode("utf-8"))
     else:
         exit()
-
 
 def parse_options(data):
     options_data = data['data']
@@ -73,12 +76,12 @@ def parse_speech(data):
 def parse_round(data):
     day = data['state']
     num = int(day/2) if (day % 2 == 0) else int((day + 1)/2)
-    message = "DAY" if (day % 2 == 0) else "NIGHT"
+    message = " DAY " if (day % 2 == 0) else " NIGHT "
     message = message + " " + str(num)
     if day < 0:
-        print('-'*4 + "GAME OVER" + '-'*4)
+        print('-'*8 + " GAME OVER " + '-'*8)
     else:
-        print('-'*4 + message + '-'*4)
+        print('-'*8 + message + '-'*8)
     return
 
 def parse_sysmsg(data):
@@ -95,8 +98,14 @@ def parse_reveal(data):
     death = 'red' in data
     if death == True and data['red'] == False:
         print("DEATH: " + user + " as " + role)
-    print("REVEAL: " + user + " as " + role)
+    else:
+        print("REVEAL: " + user + " as " + role)
     return
+
+def parse_anon(data):
+    user = data['user']
+    mask = data['mask']
+    print("MASK: " + mask + " is " + user)
 
 def parse_vote(data):
     user = data['user']
@@ -115,6 +124,14 @@ def parse_kick(data):
     user = data['user']
     print(user + " kicks")
 
+def parse_disguise(data):
+    exchange = data['exchange']
+    for key in exchange.keys():
+        disguiser = key
+        disguisee = exchange[disguiser]
+        print(disguiser + " was disguised as " + disguisee)
+
+
 for line in gamedata:
     action_type = line[0]
     data = line[1]
@@ -130,13 +147,16 @@ for line in gamedata:
         for account in chatters:
             print(account)
         print('-'*4 + " PREGAME " + '-'*4)
-
+    elif action_type == "anonymous_players":
+        print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
     elif action_type == '<':
         parse_speech(data)
     elif action_type == 'round':
         parse_round(data)
     elif action_type == 'reveal':
         parse_reveal(data)
+    elif action_type == 'anonymous_reveal':
+        parse_anon(data)
     elif action_type == 'msg':
         parse_sysmsg(data)
     elif action_type == 'point':
@@ -145,11 +165,16 @@ for line in gamedata:
         parse_kick(data)
     elif action_type == 'options':
         parse_options(data)
+    elif (action_type == 'meet' or action_type == 'kill' or 
+         action_type == 'left' or action_type == 'end_meet'):
+        pass
+    elif action_type == 'disguise':
+        parse_disguise(data)
     else: 
        # Debug print
        print(action_type, end=" ")
        pprint(data)
     
 else:
-    print('-'*4 + " GAME END " + '-'*4)
+    print('-'*8 + " GAME END " + '-'*8)
        
