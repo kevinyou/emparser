@@ -16,8 +16,62 @@ from urllib.error import URLError
 # ToDo: define yninput
 
 def run_arg(settings):
-    #todo soon
-    return []
+    parser = argparse.ArgumentParser()
+    parser.add_argument('file', nargs='?')
+    parser.add_argument('--online', '-o', 
+        action='store_true', help='online flag' )
+    parser.add_argument('--archived', '-a', 
+        action='store_true', help='archived game flag' )
+    parser.add_argument('--write', '-w', 
+        action='store_true', help='write output to file flag' )
+    parser.add_argument('--mute', '-m', 
+        action='store_false', help='mute output in system flag' )
+        
+    
+    args = parser.parse_args()
+    
+    settings['filename'] = args.file
+    settings['print_to_sys'] = args.mute
+    settings['print_to_file'] = args.write
+    #
+    if args.online:
+        try:
+            if args.archived:
+                url = "https://s3.amazonaws.com/em-gamerecords-forever/" + settings['filename']
+            else:
+                url = "https://s3.amazonaws.com/em-gamerecords/" + settings['filename']
+            request = urlopen(url)
+            online_data = request.read().decode("utf-8")
+            gamedata = json.loads(online_data)
+        
+            try:
+                print("Attempting to save a copy...")
+                file1 = open(settings['filename'], "w")
+                file1.write(online_data)
+                file1.close()
+                print("Success.")
+            except IOError:
+                print("Failed. IOError")
+        
+        except URLError:
+            print("Failed. URLError")
+            print("Exiting")
+            sys.exit()
+        except ValueError:
+            print("Failed. ValueError")
+            print("Exiting")
+            sys.exit()
+    
+    else:
+        try:
+            with open(settings['filename']) as data_file:
+                gamedata = json.load(data_file)
+                print("Success.")
+        except IOError:
+            print("Failed to load file.")
+            sys.exit()
+    
+    return gamedata
 
 
 
@@ -35,7 +89,6 @@ def run_cli(settings):
             try:
                 archived = input("Is the game archived? [Y/N]: ")
                 if archived[0] == 'y' or yn[0] == 'Y':
-                    settings['archived'] = True
                     url = "https://s3.amazonaws.com/em-gamerecords-forever/" + settings['filename']
                 else:
                     url = "https://s3.amazonaws.com/em-gamerecords/" + settings['filename']
@@ -72,7 +125,7 @@ def run_cli(settings):
     
 
 # Default settings
-settings = {'filename':"", 'archived':False, 'print_to_sys':True, 'print_to_file':False}
+settings = {'filename':"", 'print_to_sys':True, 'print_to_file':False}
 gamedata = []
 
 if (len(argv) > 1):
