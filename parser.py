@@ -205,7 +205,7 @@ def parse_speech(data):
         game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
     elif is_whisper:
         target = data['whisper']
-        printing = "{0:s}:{1:s} \t ({2:s} whispers to {3:s}: {4:s})"
+        printing = "{0:s}:{1:s} \t {2:s} whispers to {3:s}: {4:s}"
         game_print(printing.format(minutes, seconds, speaker, target, msg))
     else:
         game_print("{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
@@ -237,8 +237,10 @@ def parse_reveal(data):
     death = 'red' in data
     if death == True and data['red'] == False:
         game_print("DEATH: " + user + " as " + role)
-    else:
-        game_print("REVEAL: " + user + " as " + role)
+    elif roles[user] != role:
+        print(roles[user] + " to " + role)
+        roles[user] = role
+        game_print("ROLE CHANGE: " + user + " is now a " + role)
     return
 
 def parse_anon(data):
@@ -291,7 +293,11 @@ def parse_input(data):
     
     
 
-ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event']
+ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 'anonymous_players', 'anonymous_reveal']
+players = []
+roles = {}
+ids = {}
+masks = {}
 for line in gamedata:
     action_type = line[0]
     data = line[1]
@@ -301,7 +307,6 @@ for line in gamedata:
         game_print('-'*4 + " PLAYERS " + '-'*4)
         players = data['users']
         chatters = data["chatters"]
-        ids = {}
         for player in players:
             try:
                 ids[player] = str(players[player]['id'])
@@ -319,31 +324,50 @@ for line in gamedata:
                         ids[chatter] = p.group(1)
                     else:
                         ids[chatter] = "N/A"
-                    
-#        roles = {}
-
- #       for line1 in gamedata:
- #           if line1[0] != 'reveal' and line1[0] != 'anonymous_reveal':
- #               continue
- #           if line1[0] == 'reveal':
-                
+            for line1 in gamedata:
+                if line1[0] == 'options':
+                    break
+                if line1[0] != 'reveal' and line1[0] != 'anonymous_reveal':
+                    continue
+                if line1[0] == 'reveal':
+                    user = line1[1]['user']
+                    role = line1[1]['data']
+                    roles[user] = role
+                if line1[0] == 'anonymous_reveal':
+                    user = line1[1]['user']
+                    mask = line1[1]['mask']
+                    masks[user] = mask
+        
+        if len(masks) == 0:
+            game_print("{0:20s} {1:10s} {2:20s}".format(
+                "PLAYERS", "IDS", "ROLES"))
+        else:
+            game_print("{0:20s} {1:10s} {2:20s} {3:s} ".format(
+                "PLAYERS", "IDS", "ROLES", "MASKS"))
 
         for account in players:
-            game_print("{0:20s} {1:10s}".format(account, "(" + ids[account] + ")"))
+            if len(masks) == 0:
+                printing = "{0:20s} {1:10s} {2:s}"
+                game_print(printing.format(account, "(" + ids[account] + ")", roles[account].capitalize()))
+            else:
+                printing = "{0:20s} {1:10s} {2:20s} {3:s} "
+                game_print(printing.format(account, "(" + ids[account] + ")", 
+                    roles[masks[account]].capitalize(), masks[account]))
         game_print('-'*4 + " CHATTERS " + '-'*4)
         for account in chatters:
-            game_print(account)
+            printing = "{0:20s} {1:10s}"
+            game_print(printing.format(account, "(" + ids[account] + ")"))
         game_print('-'*4 + " PREGAME " + '-'*4)
-    elif action_type == "anonymous_players":
-        game_print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
+#    elif action_type == "anonymous_players":
+#        game_print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
     elif action_type == '<':
         parse_speech(data)
     elif action_type == 'round':
         parse_round(data)
     elif action_type == 'reveal':
         parse_reveal(data)
-    elif action_type == 'anonymous_reveal':
-        parse_anon(data)
+#    elif action_type == 'anonymous_reveal':
+#        parse_anon(data)
     elif action_type == 'msg':
         parse_sysmsg(data)
     elif action_type == 'point':
