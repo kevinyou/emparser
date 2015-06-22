@@ -194,20 +194,29 @@ def parse_speech(data):
         seconds = '0' + seconds
     if len(minutes) < 2:
         minutes = '0' + minutes
-    speaker = data['user']
     msg = data['msg']
     is_quote = 'quote' in data
     is_dead = 'dead' in data
     is_whisper = 'whisper' in data
+    is_contact = 'contact' in data
     if is_quote and data['quote'] == True:
+        speaker = data['user']
         msg = "\"" + data['target'] + " said | " + msg
     if is_dead and data['dead'] and settings['print_graveyard']:
+        speaker = data['user']
         game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
     elif is_whisper:
+        speaker = data['user']
         target = data['whisper']
         printing = "{0:s}:{1:s} \t {2:s} whispers to {3:s}: {4:s}"
         game_print(printing.format(minutes, seconds, speaker, target, msg))
+    elif is_contact:
+        role = data['role']
+        printing = "{0:s}:{1:s} \t ({2:s}) You recieves a message: {3:s}"
+        game_print(printing.format(minutes, seconds, role.capitalize(), msg))
+
     else:
+        speaker = data['user']
         game_print("{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
     return
 
