@@ -139,6 +139,7 @@ def run_cli(settings):
                 sys.exit()
         else:
             print("Exiting")
+            sys.exit()
 
     settings['print_to_sys'] = yninput("Write output to console? [Y/N]: ")
     settings['print_to_file'] = yninput("Write output to file? [Y/N]: ")
@@ -224,7 +225,7 @@ def parse_round(data):
     day = data['state']
     num = int(day/2) if (day % 2 == 0) else int((day + 1)/2)
     message = " DAY " if (day % 2 == 0) else " NIGHT "
-    message = message + " " + str(num)
+    message = message + " " + str(num) + " "
     if day < 0:
         game_print('-'*8 + " GAME OVER " + '-'*8)
     else:
@@ -330,10 +331,10 @@ for line in gamedata:
                 if (avatar_url == '/images/avatar_teeny.jpg'):
                     ids[chatter] = "N/A"
                 else:
-                    p = re.compile("(\d+)_teeny.jpg")
+                    p = re.compile(".*?(\d+)_teeny.jpg")
                     m = p.match(avatar_url)
                     if m:
-                        ids[chatter] = p.group(1)
+                        ids[chatter] = m.group(1)
                     else:
                         ids[chatter] = "N/A"
             for line1 in gamedata:
@@ -365,10 +366,12 @@ for line in gamedata:
                 printing = "{0:20s} {1:10s} {2:20s} {3:s} "
                 game_print(printing.format(account, "(" + ids[account] + ")", 
                     roles[masks[account]].capitalize(), masks[account]))
-        game_print('-'*4 + " CHATTERS " + '-'*4)
+        if len(list(set(list(chatters)) - set(list(players)))) != 0:
+            game_print('-'*4 + " OTHER CHATTERS " + '-'*4)
         for account in chatters:
-            printing = "{0:20s} {1:10s}"
-            game_print(printing.format(account, "(" + ids[account] + ")"))
+            if not(account in players):
+                printing = "{0:20s} {1:10s}"
+                game_print(printing.format(account, "(" + ids[account] + ")"))
         game_print('-'*4 + " PREGAME " + '-'*4)
 #    elif action_type == "anonymous_players":
 #        game_print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
@@ -384,8 +387,8 @@ for line in gamedata:
         parse_sysmsg(data)
     elif action_type == 'point':
         parse_vote(data)
-    elif action_type == 'kick':
-        parse_kick(data)
+#    elif action_type == 'kick':
+#        parse_kick(data)
     elif action_type == 'options':
         parse_options(data)
     elif action_type in ignore_actions:
