@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import argparse
 from pprint import pprint
@@ -273,10 +274,15 @@ def parse_input(data):
     player = data['user']
     meeting = data['meet']
     inputname = data['inputname']
+    # yex/no
     if inputname == 'boolean':
         inputname = 'bool'
+    # santa
     if inputname == 'setitem':
         inputname = 'item'
+    # driver
+    if inputname == 'pick':
+        inputname = 'player'
     data_dict = data['data']
     input_data = data_dict[inputname]
     
@@ -295,8 +301,35 @@ for line in gamedata:
         game_print('-'*4 + " PLAYERS " + '-'*4)
         players = data['users']
         chatters = data["chatters"]
+        ids = {}
+        for player in players:
+            try:
+                ids[player] = str(players[player]['id'])
+            except KeyError:
+                ids[player] = "N/A"
+        for chatter in chatters:
+            if not(chatter in ids):
+                avatar_url = chatters[chatter]['imgteeny']
+                if (avatar_url == '/images/avatar_teeny.jpg'):
+                    ids[chatter] = "N/A"
+                else:
+                    p = re.compile("(\d+)_teeny.jpg")
+                    m = p.match(avatar_url)
+                    if m:
+                        ids[chatter] = p.group(1)
+                    else:
+                        ids[chatter] = "N/A"
+                    
+#        roles = {}
+
+ #       for line1 in gamedata:
+ #           if line1[0] != 'reveal' and line1[0] != 'anonymous_reveal':
+ #               continue
+ #           if line1[0] == 'reveal':
+                
+
         for account in players:
-            game_print(account)
+            game_print("{0:20s} {1:10s}".format(account, "(" + ids[account] + ")"))
         game_print('-'*4 + " CHATTERS " + '-'*4)
         for account in chatters:
             game_print(account)
