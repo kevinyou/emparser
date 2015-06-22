@@ -149,7 +149,7 @@ def run_cli(settings):
 
 # Default settings
 settings = {'filename':"", 'print_to_sys':True, 
-    'print_to_file':False, 'print_gy':True,
+    'print_to_file':False, 'print_graveyard':True,
     'print_game_msg':True}
 gamedata = []
 
