@@ -243,19 +243,19 @@ def parse_sysmsg(data):
 def parse_reveal(data):
     user = data['user']
     role = data['data']
-    death = 'red' in data
-    if death == True and data['red'] == False:
-        game_print("DEATH: " + user + " as " + role)
-    elif roles[user] != role:
-        print(roles[user] + " to " + role)
+#    death = 'red' in data
+#    if death == True and data['red'] == False:
+#        game_print("DEATH: " + user + " as " + role)
+#        pass
+    if roles[user] != role:
         roles[user] = role
         game_print("ROLE CHANGE: " + user + " is now a " + role)
     return
 
-def parse_anon(data):
-    user = data['user']
-    mask = data['mask']
-    game_print("MASK: " + mask + " is " + user)
+#def parse_anon(data):
+#    user = data['user']
+#    mask = data['mask']
+#    game_print("MASK: " + mask + " is " + user)
 
 def parse_vote(data):
     user = data['user']
@@ -270,9 +270,9 @@ def parse_vote(data):
     else:
         game_print(user + " " + verb + " " + target + " (" + meeting + ")")
 
-def parse_kick(data):
-    user = data['user']
-    game_print(user + " kicks")
+#def parse_kick(data):
+#    user = data['user']
+#    game_print(user + " kicks")
 
 def parse_disguise(data):
     exchange = data['exchange']
@@ -295,14 +295,17 @@ def parse_input(data):
     if inputname == 'pick':
         inputname = 'player'
     data_dict = data['data']
-    input_data = data_dict[inputname]
+    try:
+        input_data = data_dict[inputname]
     
-    printing = "{0:s} chooses {1:s} ({2:s})"
-    game_print(printing.format(player, input_data, meeting))
-    
+        printing = "{0:s} chooses {1:s} ({2:s})"
+        game_print(printing.format(player, input_data, meeting))
+    except:
+        pprint(data)
     
 
-ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 'anonymous_players', 'anonymous_reveal']
+ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 
+'anonymous_players', 'anonymous_reveal', 'kick']
 players = []
 roles = {}
 ids = {}
