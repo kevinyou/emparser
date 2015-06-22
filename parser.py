@@ -1,6 +1,5 @@
 import json
 import sys
-from sys import argv
 import argparse
 from pprint import pprint
 from urllib.request import urlopen
@@ -19,21 +18,41 @@ def run_arg(settings):
     parser = argparse.ArgumentParser()
     parser.add_argument('file', nargs='?')
     parser.add_argument('--online', '-o', 
-        action='store_true', help='online flag' )
+        action='store_true', help='get game online' )
     parser.add_argument('--archived', '-a', 
         action='store_true', help='archived game flag' )
     parser.add_argument('--write', '-w', 
-        action='store_true', help='write output to file flag' )
+        action='store_true', dest='write',
+        help='write output to file flag (default)' )
+    parser.add_argument('--no-write', '-no-w', 
+        action='store_false', dest='write',
+        help='don\'t write output to file flag' )
+    parser.set_defaults(write=True)
     parser.add_argument('--mute', '-m', 
         action='store_false', help='mute output in system flag' )
-        
-    
+    parser.add_argument('--graveyard', '-gy',
+        action='store_true', dest='graveyard',
+        help='print graveyard messages (default)')
+    parser.add_argument('--no-graveyard', '-no-gy',
+        action='store_false', dest='graveyard',
+        help='don\'t print graveyard messages')
+    parser.set_defaults(graveyard=True)
+    parser.add_argument('--system', '-sys',
+        action='store_true', dest='sys',
+        help='print system messages (default)')
+    parser.add_argument('--no-system', '-no-sys',
+        action='store_false', dest='sys',
+        help='don\'t print system messages')
+    parser.set_defaults(sys=True)
+
     args = parser.parse_args()
     
     settings['filename'] = args.file
     settings['print_to_sys'] = args.mute
     settings['print_to_file'] = args.write
-    #
+    settings['print_graveyard'] = args.graveyard
+    settings['print_game_msg'] = args.sys
+    
     if args.online:
         try:
             if args.archived:
@@ -73,7 +92,11 @@ def run_arg(settings):
     
     return gamedata
 
-
+def yninput(string):
+    yn = input(string)
+    if len(yn) > 0 and (yn[0] == 'y' or yn[0] == 'Y'):
+        return True
+    return False
 
 def run_cli(settings):
     settings['filename'] = input("Game number?: ")
@@ -84,11 +107,11 @@ def run_cli(settings):
             gamedata = json.load(data_file)
             print("Success.")
     except IOError:
-        yn = input("Failed. Attempt to view game online? [Y/N]: ")
-        if len(yn) > 0 and (yn[0] == 'y' or yn[0] == 'Y'):
+        yn = yninput("Failed. Attempt to view game online? [Y/N]: ")
+        if yn:
             try:
-                archived = input("Is the game archived? [Y/N]: ")
-                if archived[0] == 'y' or yn[0] == 'Y':
+                archived = yninput("Is the game archived? [Y/N]: ")
+                if archived:
                     url = "https://s3.amazonaws.com/em-gamerecords-forever/" + settings['filename']
                 else:
                     url = "https://s3.amazonaws.com/em-gamerecords/" + settings['filename']
@@ -98,7 +121,7 @@ def run_cli(settings):
                 print("Success.")
                 try:
                     print("Attempting to save a copy...")
-                    file1 = open(filename, "w")
+                    file1 = open(settings['filename'], "w")
                     file1.write(online_data)
                     file1.close()
                     print("Success.")
@@ -116,19 +139,19 @@ def run_cli(settings):
         else:
             print("Exiting")
 
-    query = input("Write output to console? [Y/N]: ")
-    settings['print_to_sys'] = True if (query[0] == 'y' or query[0] == 'Y') else False
-    query = input("Write output to file (" + settings['filename'] + ".txt)? [Y/N]: ")
-    settings['print_to_file'] = True if (query[0] == 'y' or query[0] == 'Y') else False
+    settings['print_to_sys'] = yninput("Write output to console? [Y/N]: ")
+    settings['print_to_file'] = yninput("Write output to file? [Y/N]: ")
     return gamedata
 
     
 
 # Default settings
-settings = {'filename':"", 'print_to_sys':True, 'print_to_file':False}
+settings = {'filename':"", 'print_to_sys':True, 
+    'print_to_file':False, 'print_gy':True,
+    'print_game_msg':True}
 gamedata = []
 
-if (len(argv) > 1):
+if (len(sys.argv) > 1):
     gamedata = run_arg(settings)
 else:
     gamedata = run_cli(settings)
@@ -177,7 +200,7 @@ def parse_speech(data):
     is_whisper = 'whisper' in data
     if is_quote and data['quote'] == True:
         msg = "\"" + data['target'] + " said | " + msg
-    if is_dead and data['dead'] == True:
+    if is_dead and data['dead'] and settings['print_graveyard']:
         game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
     elif is_whisper:
         target = data['whisper']
@@ -203,7 +226,8 @@ def parse_sysmsg(data):
     has_action_type = 'type' in data
     if has_action_type:
         action_type = data['type']
-    game_print(message)
+    if settings['print_game_msg']:
+        game_print(message)
     return
 
 def parse_reveal(data):
