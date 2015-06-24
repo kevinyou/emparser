@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+"""Self-contained python script that retrieves games, parses them, and then prints the output as text.  """
 import json
 import re
 import sys
@@ -6,16 +8,8 @@ from pprint import pprint
 from urllib.request import urlopen
 from urllib.error import URLError
 
-# Ignore for now: meet, end_meet, kill, left, unmeet
-
-# ToDo: filter which messages to view
-# ToDo: allow command line arguments
-# ToDo: change "votes" to "chooses" for individual meetings (minor)
-# ToDo: write userID next to players
-# ToDo: batch mode
-# ToDo: define yninput
-
 def run_arg(settings):
+    """Runs with command line arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument('file', nargs='?')
     parser.add_argument('--online', '-o', 
@@ -94,12 +88,14 @@ def run_arg(settings):
     return gamedata
 
 def yninput(string):
+    """Converts yes or no into true or false"""
     yn = input(string)
     if len(yn) > 0 and (yn[0] == 'y' or yn[0] == 'Y'):
         return True
     return False
 
 def run_cli(settings):
+    """Runs in command line interface, prompting the user"""
     settings['filename'] = input("Game number?: ")
     print("Attempting to see if cached on disk...")
     
@@ -145,34 +141,13 @@ def run_cli(settings):
     settings['print_to_file'] = yninput("Write output to file? [Y/N]: ")
     return gamedata
 
-    
-
-# Default settings
-settings = {'filename':"", 'print_to_sys':True, 
-    'print_to_file':False, 'print_graveyard':True,
-    'print_game_msg':True}
-gamedata = []
-
-if (len(sys.argv) > 1):
-    gamedata = run_arg(settings)
-else:
-    gamedata = run_cli(settings)
-
-if settings['print_to_file']:
-    try:
-        file2 = open(settings['filename'] + ".txt", "w")
-    except IOError:
-        print("Failed. IOError")
-        print("Exiting")
-        sys.exit()
-
-def game_print(string):
+def game_print(settings, string):
     if settings['print_to_sys']:
         print(string)
     if settings['print_to_file']:
-        file2.write(string + "\n")
+        settings['output_file'].write(string + "\n")
 
-def parse_options(data):
+def parse_options(settings, data):
     options_data = data['data']
     options = []
     for option in options_data.keys():
@@ -185,9 +160,9 @@ def parse_options(data):
                 options.append("faster_game")
         elif options_data[option] == 1:
             options.append(option)
-    game_print("Options: " + str(options))
+    game_print(settings, "Options: " + str(options))
 
-def parse_speech(data):
+def parse_speech(settings, data):
     time = data['t']
     minutes = str(int(time/60))
     seconds = str(time%60)
@@ -205,60 +180,60 @@ def parse_speech(data):
         msg = "\"" + data['target'] + " said | " + msg
     if is_dead and data['dead'] and settings['print_graveyard']:
         speaker = data['user']
-        game_print("{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
+        game_print(settings, "{0:s}:{1:s} \t ({2:s}: {3:s})".format(minutes, seconds, speaker, msg))
     elif is_whisper:
         speaker = data['user']
         target = data['whisper']
         printing = "{0:s}:{1:s} \t {2:s} whispers to {3:s}: {4:s}"
-        game_print(printing.format(minutes, seconds, speaker, target, msg))
+        game_print(settings, printing.format(minutes, seconds, speaker, target, msg))
     elif is_contact:
         role = data['role']
         printing = "{0:s}:{1:s} \t ({2:s}) You recieves a message: {3:s}"
-        game_print(printing.format(minutes, seconds, role.capitalize(), msg))
+        game_print(settings, printing.format(minutes, seconds, role.capitalize(), msg))
 
     else:
         speaker = data['user']
-        game_print("{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
+        game_print(settings, "{0:s}:{1:s} \t {2:s}: {3:s}".format(minutes, seconds, speaker, msg))
     return
 
-def parse_round(data):
+def parse_round(settings, data):
     day = data['state']
     num = int(day/2) if (day % 2 == 0) else int((day + 1)/2)
     message = " DAY " if (day % 2 == 0) else " NIGHT "
     message = message + " " + str(num) + " "
     if day < 0:
-        game_print('-'*8 + " GAME OVER " + '-'*8)
+        game_print(settings, '-'*8 + " GAME OVER " + '-'*8)
     else:
-        game_print('-'*8 + message + '-'*8)
+        game_print(settings, '-'*8 + message + '-'*8)
     return
 
-def parse_sysmsg(data):
+def parse_sysmsg(settings, data):
     message = data['msg']
     has_action_type = 'type' in data
     if has_action_type:
         action_type = data['type']
     if settings['print_game_msg']:
-        game_print(message)
+        game_print(settings, message)
     return
 
-def parse_reveal(data):
+def parse_reveal(roles, settings, data):
     user = data['user']
     role = data['data']
 #    death = 'red' in data
 #    if death == True and data['red'] == False:
-#        game_print("DEATH: " + user + " as " + role)
+#        game_print(settings, "DEATH: " + user + " as " + role)
 #        pass
     if roles[user] != role:
         roles[user] = role
-        game_print("ROLE CHANGE: " + user + " is now a " + role)
+        game_print(settings, "ROLE CHANGE: " + user + " is now a " + role)
     return
 
 #def parse_anon(data):
 #    user = data['user']
 #    mask = data['mask']
-#    game_print("MASK: " + mask + " is " + user)
+#    game_print(settings, "MASK: " + mask + " is " + user)
 
-def parse_vote(data):
+def parse_vote(settings, data):
     user = data['user']
     target = data['target']
     unvote = data['unpoint']
@@ -267,22 +242,22 @@ def parse_vote(data):
     verb = "unvotes" if unvote else "votes"
     target = "no one" if (target == "*") else target
     if meeting == 'village':
-        game_print(user + " " + verb + " " + target)
+        game_print(settings, user + " " + verb + " " + target)
     else:
-        game_print(user + " " + verb + " " + target + " (" + meeting + ")")
+        game_print(settings, user + " " + verb + " " + target + " (" + meeting + ")")
 
 #def parse_kick(data):
 #    user = data['user']
-#    game_print(user + " kicks")
+#    game_print(settings, user + " kicks")
 
-def parse_disguise(data):
+def parse_disguise(settings, data):
     exchange = data['exchange']
     for key in exchange.keys():
         disguiser = key
         disguisee = exchange[disguiser]
-        game_print(disguiser + " was disguised as " + disguisee)
+        game_print(settings, disguiser + " was disguised as " + disguisee)
 
-def parse_input(data):
+def parse_input(settings, data):
     player = data['user']
     meeting = data['meet']
     inputname = data['inputname']
@@ -300,113 +275,142 @@ def parse_input(data):
         input_data = data_dict[inputname]
     
         printing = "{0:s} chooses {1:s} ({2:s})"
-        game_print(printing.format(player, input_data, meeting))
+        game_print(settings, printing.format(player, input_data, meeting))
     except:
         pprint(data)
     
 
-ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 
-'anonymous_players', 'anonymous_reveal', 'kick']
-players = []
-roles = {}
-ids = {}
-masks = {}
-for line in gamedata:
-    action_type = line[0]
-    data = line[1]
-    if action_type == 'auth':
-        game_print('-'*8 + " GAME START "+'-'*8)
-    elif action_type == 'users':
-        game_print('-'*4 + " PLAYERS " + '-'*4)
-        players = data['users']
-        chatters = data["chatters"]
-        for player in players:
-            try:
-                ids[player] = str(players[player]['id'])
-            except KeyError:
-                ids[player] = "N/A"
-        for chatter in chatters:
-            if not(chatter in ids):
-                avatar_url = chatters[chatter]['imgteeny']
-                if (avatar_url == '/images/avatar_teeny.jpg'):
-                    ids[chatter] = "N/A"
-                else:
-                    p = re.compile(".*?(\d+)_teeny.jpg")
-                    m = p.match(avatar_url)
-                    if m:
-                        ids[chatter] = m.group(1)
-                    else:
-                        ids[chatter] = "N/A"
-            for line1 in gamedata:
-                if line1[0] == 'options':
-                    break
-                if line1[0] != 'reveal' and line1[0] != 'anonymous_reveal':
-                    continue
-                if line1[0] == 'reveal':
-                    user = line1[1]['user']
-                    role = line1[1]['data']
-                    roles[user] = role
-                if line1[0] == 'anonymous_reveal':
-                    user = line1[1]['user']
-                    mask = line1[1]['mask']
-                    masks[user] = mask
-        
-        if len(masks) == 0:
-            game_print("{0:20s} {1:10s} {2:20s}".format(
-                "PLAYERS", "IDS", "ROLES"))
-        else:
-            game_print("{0:20s} {1:10s} {2:20s} {3:s} ".format(
-                "PLAYERS", "IDS", "ROLES", "MASKS"))
-
-        for account in players:
-            if len(masks) == 0:
-                printing = "{0:20s} {1:10s} {2:s}"
-                game_print(printing.format(account, "(" + ids[account] + ")", roles[account].capitalize()))
-            else:
-                printing = "{0:20s} {1:10s} {2:20s} {3:s} "
-                game_print(printing.format(account, "(" + ids[account] + ")", 
-                    roles[masks[account]].capitalize(), masks[account]))
-        if len(list(set(list(chatters)) - set(list(players)))) != 0:
-            game_print('-'*4 + " OTHER CHATTERS " + '-'*4)
-        for account in chatters:
-            if not(account in players):
-                printing = "{0:20s} {1:10s}"
-                game_print(printing.format(account, "(" + ids[account] + ")"))
-        game_print('-'*4 + " PREGAME " + '-'*4)
-#    elif action_type == "anonymous_players":
-#        game_print('-'*4 + " ANONYMOUS MASKS " + '-'*4)
-    elif action_type == '<':
-        parse_speech(data)
-    elif action_type == 'round':
-        parse_round(data)
-    elif action_type == 'reveal':
-        parse_reveal(data)
-#    elif action_type == 'anonymous_reveal':
-#        parse_anon(data)
-    elif action_type == 'msg':
-        parse_sysmsg(data)
-    elif action_type == 'point':
-        parse_vote(data)
-#    elif action_type == 'kick':
-#        parse_kick(data)
-    elif action_type == 'options':
-        parse_options(data)
-    elif action_type in ignore_actions:
-        pass
-    elif action_type == 'disguise':
-        parse_disguise(data)
-    elif action_type == 'inputed':
-        parse_input(data)
-    else: 
-       # Debug game_print
-       print(action_type, end=" ")
-       pprint(data)
+def main():
     
-else:
-    game_print('-'*8 + " GAME END " + '-'*8)
+    # Default settings
+    settings = {'filename':"", 'print_to_sys':True, 
+        'print_to_file':False, 'print_graveyard':True,
+        'print_game_msg':True, 'output_file':None}
+    gamedata = []
 
-if settings['print_to_file']:
-    file2.close()
+    if (len(sys.argv) > 1):
+        gamedata = run_arg(settings)
+    else:
+        gamedata = run_cli(settings)
 
-print("Success. Exiting")
-sys.exit()
+    if settings['print_to_file']:
+        try:
+            settings['output_file'] = open(settings['filename'] + ".txt", "w")
+        except IOError:
+            print("Failed. IOError")
+            print("Exiting")
+            sys.exit()
+
+
+
+
+     # Default settings
+    ignore_actions = ['meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 
+    'anonymous_players', 'anonymous_reveal', 'kick']
+
+    players = []
+    roles = {}
+    ids = {}
+    masks = {}
+    for line in gamedata:
+        action_type = line[0]
+        data = line[1]
+        if action_type == 'auth':
+            game_print(settings, '-'*8 + " GAME START "+'-'*8)
+        elif action_type == 'users':
+            game_print(settings, '-'*4 + " PLAYERS " + '-'*4)
+            players = data['users']
+            chatters = data["chatters"]
+            for player in players:
+                try:
+                    ids[player] = str(players[player]['id'])
+                except KeyError:
+                    ids[player] = "N/A"
+            for chatter in chatters:
+                if not(chatter in ids):
+                    avatar_url = chatters[chatter]['imgteeny']
+                    if (avatar_url == '/images/avatar_teeny.jpg'):
+                        ids[chatter] = "N/A"
+                    else:
+                        p = re.compile(".*?(\d+)_teeny.jpg")
+                        m = p.match(avatar_url)
+                        if m:
+                            ids[chatter] = m.group(1)
+                        else:
+                            ids[chatter] = "N/A"
+                for line1 in gamedata:
+                    if line1[0] == 'options':
+                        break
+                    if line1[0] != 'reveal' and line1[0] != 'anonymous_reveal':
+                        continue
+                    if line1[0] == 'reveal':
+                        user = line1[1]['user']
+                        role = line1[1]['data']
+                        roles[user] = role
+                    if line1[0] == 'anonymous_reveal':
+                        user = line1[1]['user']
+                        mask = line1[1]['mask']
+                        masks[user] = mask
+            
+            if len(masks) == 0:
+                game_print(settings, "{0:20s} {1:10s} {2:20s}".format(
+                    "PLAYERS", "IDS", "ROLES"))
+            else:
+                game_print(settings, "{0:20s} {1:10s} {2:20s} {3:s} ".format(
+                    "PLAYERS", "IDS", "ROLES", "MASKS"))
+
+            for account in players:
+                if len(masks) == 0:
+                    printing = "{0:20s} {1:10s} {2:s}"
+                    game_print(settings, printing.format(account, "(" + ids[account] + ")", roles[account].capitalize()))
+                else:
+                    printing = "{0:20s} {1:10s} {2:20s} {3:s} "
+                    game_print(settings, printing.format(account, "(" + ids[account] + ")", 
+                        roles[masks[account]].capitalize(), masks[account]))
+            if len(list(set(list(chatters)) - set(list(players)))) != 0:
+                game_print(settings, '-'*4 + " OTHER CHATTERS " + '-'*4)
+            for account in chatters:
+                if not(account in players):
+                    printing = "{0:20s} {1:10s}"
+                    game_print(settings, printing.format(account, "(" + ids[account] + ")"))
+            game_print(settings, '-'*4 + " PREGAME " + '-'*4)
+    #    elif action_type == "anonymous_players":
+    #        game_print(settings, '-'*4 + " ANONYMOUS MASKS " + '-'*4)
+        elif action_type == '<':
+            parse_speech(settings, data)
+        elif action_type == 'round':
+            parse_round(settings, data)
+        elif action_type == 'reveal':
+            parse_reveal(roles, settings, data)
+    #    elif action_type == 'anonymous_reveal':
+    #        parse_anon(data)
+        elif action_type == 'msg':
+            parse_sysmsg(settings, data)
+        elif action_type == 'point':
+            parse_vote(settings, data)
+    #    elif action_type == 'kick':
+    #        parse_kick(data)
+        elif action_type == 'options':
+            parse_options(settings, data)
+        elif action_type in ignore_actions:
+            pass
+        elif action_type == 'disguise':
+            parse_disguise(settings, data)
+        elif action_type == 'inputed':
+            parse_input(settings, data)
+        else: 
+           # Debug game_print
+           print(action_type, end=" ")
+           pprint(data)
+        
+    else:
+        game_print(settings, '-'*8 + " GAME END " + '-'*8)
+
+    if settings['print_to_file']:
+        settings['output_file'].close()
+
+    print("Success. Exiting")
+    sys.exit()
+
+if __name__ == "__main__":
+        main()

@@ -6,14 +6,7 @@ from pprint import pprint
 from urllib.request import urlopen
 from urllib.error import URLError
 
-# Ignore for now: meet, end_meet, kill, left, unmeet
-
-# ToDo: filter which messages to view
-# ToDo: allow command line arguments
-# ToDo: change "votes" to "chooses" for individual meetings (minor)
-# ToDo: write userID next to players
 # ToDo: batch mode
-# ToDo: define yninput
 
 def run_arg(settings):
     parser = argparse.ArgumentParser()
@@ -144,27 +137,6 @@ def run_cli(settings):
     settings['print_to_sys'] = yninput("Write output to console? [Y/N]: ")
     settings['print_to_file'] = yninput("Write output to file? [Y/N]: ")
     return gamedata
-
-    
-
-# Default settings
-settings = {'filename':"", 'print_to_sys':True, 
-    'print_to_file':False, 'print_graveyard':True,
-    'print_game_msg':True}
-gamedata = []
-
-if (len(sys.argv) > 1):
-    gamedata = run_arg(settings)
-else:
-    gamedata = run_cli(settings)
-
-if settings['print_to_file']:
-    try:
-        file2 = open(settings['filename'] + ".txt", "w")
-    except IOError:
-        print("Failed. IOError")
-        print("Exiting")
-        sys.exit()
 
 def game_print(string):
     if settings['print_to_sys']:
@@ -304,94 +276,136 @@ def parse_input(data):
     except:
         pprint(data)
     
+def parse_gamedata(gamedata):
+    """Parses game data in a more sensible order"""
+    ignore_actions = ['auth', 'meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 
+        'anonymous_players', 'kick']
+    line_action = ['<', 'msg', 'point', 'disguise', 'inputed']
 
-ignore_actions = ['auth', 'meet', 'kill', 'left', 'end_meet', 'unmeet', 'event', 
-    'anonymous_players', 'kick']
-line_action = ['<', 'msg', 'point', 'disguise', 'inputed']
+    players = {}
+    chatters = {}
+    ids = {}
+    masks = {}
+    options = []
 
-players = {}
-chatters = {}
-roles = {}
-ids = {}
-masks = {}
-options = []
+    tidbits = []
 
-current_round = 0
-stages = []
-stage = {'lines':[], 'roles':{}}
-stage['title'] = "Pregame"
-for line in gamedata:
-    action_type = line[0]
-    data = line[1]
-    if action_type == 'users':
-        players = data['users']
-        chatters = data["chatters"]
-        for player in players:
-            try:
-                ids[player] = players[player]['id']
-            except KeyError:
-                ids[player] = -1
-        for chatter in chatters:
-            if not(chatter in ids):
+    current_round = 0
+    stages = []
+    stage = {'lines':[], 'roles':{}}
+    stage['title'] = "Pregame"
+    for line in gamedata:
+        action_type = line[0]
+        data = line[1]
+        if action_type == 'users':
+            players = data['users']
+            chatters = data["chatters"]
+            for player in players:
                 try:
-                    avatar_url = chatters[chatter]['imgteeny']
-                    if (avatar_url == '/images/avatar_teeny.jpg'):
-                        ids[chatter] = -1
-                    else:
-                        p = re.compile(".*?(\d+)_teeny.jpg")
-                        m = p.match(avatar_url)
-                        if m:
-                            ids[chatter] = int(m.group(1))
-                        else:
+                    ids[player] = players[player]['id']
+                except KeyError:
+                    ids[player] = -1
+            for chatter in chatters:
+                if not(chatter in ids):
+                    try:
+                        avatar_url = chatters[chatter]['imgteeny']
+                        if (avatar_url == '/images/avatar_teeny.jpg'):
                             ids[chatter] = -1
-                except:
-                    ids[chatter] = -1
-    
-    elif action_type == 'options':
-        stage['roles'] = roles
-        options = parse_options(data)
-    
-    elif action_type == 'round':
+                        else:
+                            p = re.compile(".*?(\d+)_teeny.jpg")
+                            m = p.match(avatar_url)
+                            if m:
+                                ids[chatter] = int(m.group(1))
+                            else:
+                                ids[chatter] = -1
+                    except:
+                        ids[chatter] = -1
+        
+        elif action_type == 'options':
+            options = parse_options(data)
+        
+        elif action_type == 'round':
+            stages.append(stage)
+            num = int(data['state'])
+            if num > 0:
+                current_round = num
+                number = int(num/2) if (num % 2 == 0) else int((num + 1)/2)
+                title = "Day " + str(number) if (num % 2 == 0) else "Night " + str(number)
+            else:
+                current_round = current_round + 1
+                title = "Game over"
+            stage = {}
+            stage['roles'] = stages[current_round-1]['roles']
+            stage['lines'] = []
+            stage['title'] = title
+        elif action_type == 'reveal':
+            user = data['user']
+            role = data['data']
+            if current_round == 0:
+                if user in stage['roles'] and stage['roles'][user] != role:
+                        old_role = stages['roles'][user]
+                        tidbits.append(user + " was initially assigned " + old_role)
+                stage['roles'][user] = role
+            elif current_round != 0:
+                if stage['roles'][user] != role:
+                    stage['lines'].append(line)
+
+        elif action_type == 'anonymous_reveal':
+            masks[data['user']] = data['mask']
+        elif action_type in line_action:
+            stage['lines'].append(line)
+        elif action_type in ignore_actions:
+            pass
+        else: 
+           # Debug game_print
+           print(action_type, end=" ")
+           pprint(data)
+        
+    else:
         stages.append(stage)
-        num = int(data['state'])
-        if num > 0:
-            current_round = num
-            number = int(num/2) if (num % 2 == 0) else int((num + 1)/2)
-            title = "Day " + str(number) if (num % 2 == 0) else "Night " + str(number)
-        else:
-            current_round = current_round + 1
-            title = "Game over"
-        stage = {}
-        stage['roles'] = stages[current_round-1]['roles']
-        stage['lines'] = []
-        stage['title'] = title
-    elif action_type == 'reveal':
-        user = data['user']
-        role = data['data']
-        if current_round == 0:
-            roles[user] = role
-        elif current_round != 0:
-            if stage['roles'][user] != role:
-                stage['lines'].append(line)
-
-    elif action_type == 'anonymous_reveal':
-        masks[data['user']] = data['mask']
-    elif action_type in line_action:
-        stage['lines'].append(line)
-    elif action_type in ignore_actions:
-        pass
-    else: 
-       # Debug game_print
-       print(action_type, end=" ")
-       pprint(data)
     
-else:
-    stages.append(stage)
+    parsed = {}
+    parsed['players'] = players
+    parsed['chatters'] = chatters
+    parsed['ids'] = ids
+    parsed['masks'] = masks
+    parsed['options'] = options
+    parsed['stages'] = stages
+    parsed['tidbits'] = tidbits
+    return parsed
 
-pprint(stages)
 
-if settings['print_to_file']:
-    file2.close()
 
-print("Success. Exiting")
-sys.exit()
+def main():
+
+    # Default settings
+    settings = {'filename':"", 'print_to_sys':True, 
+        'print_to_file':False, 'print_graveyard':True,
+        'print_game_msg':True}
+    gamedata = []
+
+    if (len(sys.argv) > 1):
+        gamedata = run_arg(settings)
+    else:
+        gamedata = run_cli(settings)
+
+    if settings['print_to_file']:
+        try:
+            file2 = open(settings['filename'] + ".txt", "w")
+        except IOError:
+            print("Failed. IOError")
+            print("Exiting")
+            sys.exit()
+
+    parsed = parse_gamedata(gamedata)
+
+    
+
+    if settings['print_to_file']:
+        file2.close()
+
+    print("Success. Exiting")
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
