@@ -60,8 +60,8 @@ def run_arg(settings):
         
             try:
                 print("Attempting to save a copy...")
-                file1 = open(settings['filename'], "w")
-                file1.write(online_data)
+                file1 = open(settings['filename'], "wb")
+                file1.write(online_data.encode("utf8"))
                 file1.close()
                 print("Success.")
             except IOError:
@@ -69,10 +69,6 @@ def run_arg(settings):
         
         except URLError:
             print("Failed. URLError")
-            print("Exiting")
-            sys.exit()
-        except ValueError:
-            print("Failed. ValueError")
             print("Exiting")
             sys.exit()
     
